@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Unified Workflow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;overflow:hidden;background:#0A0C10;}
+:root{
+  --vi:#7C3AED;--vi2:#9D60FF;--vi-pale:rgba(124,58,237,0.10);--vi-glow:rgba(124,58,237,0.30);
+  --au:#C49820;--au2:#E8B830;--au-pale:rgba(196,152,32,0.10);--au-glow:rgba(196,152,32,0.30);
+  --sa:#1A6FC4;--sa2:#3B8EE8;--sa-pale:rgba(26,111,196,0.10);--sa-glow:rgba(26,111,196,0.28);
+  --em:#15A854;--em2:#1DB860;--em-pale:rgba(21,168,84,0.10);--em-glow:rgba(21,168,84,0.28);
+  --tc:#0D9B8A;--tc2:#14C4AF;--tc-pale:rgba(13,155,138,0.10);--tc-glow:rgba(13,155,138,0.28);
+  --ro:#E8547A;--ro2:#FF7A9A;--ro-pale:rgba(232,84,122,0.10);
+  --t1:#1A1E2E;--t2:#3D4460;--t3:#7A82A8;--t4:#C0C8E8;
+  --bg:#F7F8FC;--card:#FFFFFF;
+  --sh:0 2px 16px rgba(0,0,0,0.07),0 1px 0 rgba(255,255,255,0.9);
+  --sh-lg:0 8px 40px rgba(0,0,0,0.12),0 2px 8px rgba(0,0,0,0.06);
+  --active-color:var(--vi);--active-pale:var(--vi-pale);--active-glow:var(--vi-glow);
+}
+#app{position:relative;width:100%;max-width:430px;height:100%;margin:0 auto;background:var(--bg);display:flex;flex-direction:column;overflow:hidden;}
+/* STATUS BAR */
+#sbar{flex-shrink:0;height:44px;background:rgba(247,248,252,0.98);display:flex;align-items:center;justify-content:space-between;padding:0 18px;border-bottom:1px solid rgba(0,0,0,0.06);z-index:100;}
+.sbar-time{font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--t1);}
+.sbar-icons{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--t2);}
+/* WORKFLOW STRIP */
+#wf-strip{flex-shrink:0;height:38px;background:rgba(247,248,252,0.98);display:flex;align-items:center;padding:0 12px;gap:0;border-bottom:1px solid rgba(0,0,0,0.07);overflow:hidden;}
+.wf-step{display:flex;align-items:center;gap:0;flex:1;}
+.wf-dot{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;background:rgba(0,0,0,0.07);color:var(--t3);flex-shrink:0;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);cursor:pointer;}
+.wf-dot.done{background:var(--em);color:#fff;}
+.wf-dot.active{background:var(--active-color);color:#fff;box-shadow:0 0 0 3px var(--active-pale);}
+.wf-line{flex:1;height:2px;background:rgba(0,0,0,0.08);margin:0 3px;}
+.wf-line.done{background:var(--em);}
+/* SCREEN CONTAINER */
+#sc{flex:1;min-height:0;position:relative;overflow:hidden;}
+.screen{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;display:none;padding-bottom:80px;}
+.screen::-webkit-scrollbar{display:none;}
+.screen.active{display:block;}
+/* TAB BAR */
+#tabbar{width:100%;max-width:430px;background:rgba(247,248,252,0.98);border-top:1.5px solid rgba(0,0,0,0.09);box-shadow:0 -4px 24px rgba(0,0,0,0.10);padding:5px 4px calc(env(safe-area-inset-bottom,0px) + 5px);min-height:56px;position:fixed;bottom:0;left:50%;transform:translateX(-50%);z-index:9999;display:flex;}
+.tbi{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:5px 2px 3px;border-radius:12px;border:none;background:none;font-family:inherit;transition:all 0.22s cubic-bezier(0.34,1.56,0.64,1);-webkit-tap-highlight-color:transparent;}
+.tbi:active{transform:scale(0.88);}
+.tbi.active{background:var(--active-pale);}
+.tbi-ico{font-size:18px;line-height:1;transition:transform 0.22s cubic-bezier(0.34,1.56,0.64,1);}
+.tbi.active .tbi-ico{transform:translateY(-2px) scale(1.1);}
+.tbi-lbl{font-size:7px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--t3);transition:color 0.18s;}
+.tbi.active .tbi-lbl{color:var(--active-color);}
+.tbi::after{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:0;height:2px;border-radius:2px;background:var(--active-color);transition:width 0.28s;}
+.tbi.active::after{width:18px;}
+/* SHARED CARDS */
+.scr-pad{padding:0 14px;}
+.page-hdr{padding:18px 14px 6px;display:flex;align-items:flex-start;justify-content:space-between;}
+.ph-title{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:var(--t1);line-height:1.1;}
+.ph-sub{font-size:11px;color:var(--t3);margin-top:3px;font-weight:500;}
+.ph-badge{padding:7px 14px;border-radius:100px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.card{background:var(--card);border-radius:20px;box-shadow:var(--sh);border:1px solid rgba(0,0,0,0.06);margin:0 14px 12px;}
+.section-title{font-family:'Playfair Display',serif;font-size:13px;font-weight:700;color:var(--t2);margin:6px 14px 8px;letter-spacing:0.2px;}
+
+/* ═══════════════════════════════════════════
+   SCREEN 1: HIERARCHY VISION
+═══════════════════════════════════════════ */
+#sc-vision{background:radial-gradient(ellipse at 20% 5%,rgba(124,58,237,0.14) 0%,transparent 50%),radial-gradient(ellipse at 80% 0%,rgba(196,152,32,0.10) 0%,transparent 40%),var(--bg);}
+.vis-tier{margin:0 14px 10px;border-radius:20px;border:1.5px solid;overflow:hidden;box-shadow:var(--sh);}
+.vis-tier-hdr{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;}
+.vis-tier-ico{width:34px;height:34px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
+.vis-tier-info{flex:1;}
+.vis-tier-tag{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:1px;}
+.vis-tier-name{font-family:'Playfair Display',serif;font-size:15px;font-weight:700;color:var(--t1);}
+.vis-tier-prog{height:3px;border-radius:2px;background:rgba(0,0,0,0.07);margin:0 14px;overflow:hidden;}
+.vis-tier-fill{height:100%;border-radius:2px;transition:width 0.6s cubic-bezier(0.34,1.56,0.64,1);}
+.vis-tier-body{padding:8px 14px 14px;}
+.vis-goal-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:14px;margin-bottom:7px;border:1.5px solid rgba(0,0,0,0.07);background:rgba(255,255,255,0.8);cursor:pointer;transition:all 0.2s;}
+.vis-goal-item:last-child{margin-bottom:0;}
+.vis-goal-item.done{opacity:0.6;}
+.vis-chk{width:22px;height:22px;border-radius:7px;border:2px solid;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;transition:all 0.22s cubic-bezier(0.34,1.56,0.64,1);}
+.vis-goal-text{font-size:12.5px;font-weight:600;color:var(--t1);flex:1;line-height:1.3;}
+.vis-goal-item.done .vis-goal-text{text-decoration:line-through;color:var(--t3);}
+.vis-add-btn{width:100%;padding:9px;border:1.5px dashed rgba(0,0,0,0.14);border-radius:14px;background:none;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--t3);cursor:pointer;transition:all 0.2s;margin-top:4px;}
+.vis-add-btn:hover{border-color:var(--active-color);color:var(--active-color);}
+.vis-t1{background:linear-gradient(145deg,rgba(240,232,255,0.95),rgba(255,255,255,0.9));border-color:rgba(124,58,237,0.22);}
+.vis-t1 .vis-tier-tag{color:var(--vi);}
+.vis-t1 .vis-tier-ico{background:rgba(124,58,237,0.12);}
+.vis-t1 .vis-tier-fill{background:linear-gradient(90deg,var(--vi),var(--vi2));}
+.vis-t1 .vis-chk{border-color:var(--vi);}
+.vis-t1 .vis-goal-item.done .vis-chk{background:var(--vi);color:#fff;border-color:var(--vi);}
+.vis-t2{background:linear-gradient(145deg,rgba(255,248,200,0.95),rgba(255,255,255,0.9));border-color:rgba(196,152,32,0.28);}
+.vis-t2 .vis-tier-tag{color:var(--au);}
+.vis-t2 .vis-tier-ico{background:rgba(196,152,32,0.14);}
+.vis-t2 .vis-tier-fill{background:linear-gradient(90deg,var(--au),var(--au2));}
+.vis-t2 .vis-chk{border-color:var(--au);}
+.vis-t2 .vis-goal-item.done .vis-chk{background:var(--au);color:#fff;border-color:var(--au);}
+.vis-t3{background:linear-gradient(145deg,rgba(213,236,255,0.95),rgba(255,255,255,0.9));border-color:rgba(26,111,196,0.24);}
+.vis-t3 .vis-tier-tag{color:var(--sa);}
+.vis-t3 .vis-tier-ico{background:rgba(26,111,196,0.12);}
+.vis-t3 .vis-tier-fill{background:linear-gradient(90deg,var(--sa),var(--sa2));}
+.vis-t3 .vis-chk{border-color:var(--sa);}
+.vis-t3 .vis-goal-item.done .vis-chk{background:var(--sa);color:#fff;border-color:var(--sa);}
+.vis-add-modal{display:none;position:fixed;inset:0;z-index:99999;background:rgba(10,12,16,0.5);backdrop-filter:blur(6px);align-items:flex-end;}
+.vis-add-modal.open{display:flex;}
+.vis-add-sheet{background:#fff;border-radius:28px 28px 0 0;padding:20px 18px calc(env(safe-area-inset-bottom,20px)+20px);width:100%;max-width:430px;margin:0 auto;box-shadow:0 -12px 48px rgba(0,0,0,0.22);}
+.vas-title{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;color:var(--t1);margin-bottom:14px;}
+.vas-input{width:100%;padding:12px 14px;border:1.5px solid rgba(0,0,0,0.12);border-radius:14px;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--t1);outline:none;background:rgba(0,0,0,0.02);}
+.vas-input:focus{border-color:var(--active-color);box-shadow:0 0 0 3px var(--active-pale);}
+.vas-btns{display:flex;gap:8px;margin-top:12px;}
+.vas-cancel{flex:1;padding:12px;border:1.5px solid rgba(0,0,0,0.10);border-radius:14px;background:none;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;color:var(--t2);cursor:pointer;}
+.vas-save{flex:2;padding:12px;border:none;border-radius:14px;background:var(--active-color);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;color:#fff;cursor:pointer;box-shadow:0 4px 16px var(--active-glow);}
+
+/* ═══════════════════════════════════════════
+   SCREEN 2: SWOT
+═══════════════════════════════════════════ */
+#sc-swot{background:radial-gradient(ellipse at 80% 5%,rgba(196,152,32,0.14) 0%,transparent 50%),var(--bg);}
+.swot-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 14px 12px;}
+.swot-q{border-radius:20px;padding:14px;min-height:160px;border:1.5px solid;position:relative;overflow:hidden;}
+.sq-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.sq-label{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;}
+.sq-name{font-size:9px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;margin-top:0px;}
+.sq-add{width:24px;height:24px;border-radius:8px;border:none;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform 0.2s;}
+.sq-add:active{transform:scale(0.85);}
+.sq-items{display:flex;flex-direction:column;gap:5px;}
+.sq-item{font-size:11px;font-weight:500;color:var(--t1);padding:5px 9px;border-radius:9px;background:rgba(255,255,255,0.75);border:1px solid rgba(0,0,0,0.07);display:flex;align-items:center;gap:6px;cursor:pointer;transition:opacity 0.2s;}
+.sq-item:active{opacity:0.6;}
+.sq-item-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.sq-count{position:absolute;top:10px;right:10px;width:22px;height:22px;border-radius:50%;font-family:'DM Mono',monospace;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+/* S = green */
+.sq-s{background:linear-gradient(145deg,rgba(220,248,230,0.97),rgba(255,255,255,0.9));border-color:rgba(21,168,84,0.28);}
+.sq-s .sq-label{color:var(--em);}
+.sq-s .sq-name{color:var(--em);}
+.sq-s .sq-add{background:rgba(21,168,84,0.12);color:var(--em);}
+.sq-s .sq-item-dot{background:var(--em);}
+.sq-s .sq-count{background:rgba(21,168,84,0.12);color:var(--em);}
+/* W = rose */
+.sq-w{background:linear-gradient(145deg,rgba(255,226,232,0.97),rgba(255,255,255,0.9));border-color:rgba(232,84,122,0.24);}
+.sq-w .sq-label{color:var(--ro);}
+.sq-w .sq-name{color:var(--ro);}
+.sq-w .sq-add{background:rgba(232,84,122,0.10);color:var(--ro);}
+.sq-w .sq-item-dot{background:var(--ro);}
+.sq-w .sq-count{background:rgba(232,84,122,0.10);color:var(--ro);}
+/* O = blue */
+.sq-o{background:linear-gradient(145deg,rgba(213,236,255,0.97),rgba(255,255,255,0.9));border-color:rgba(26,111,196,0.24);}
+.sq-o .sq-label{color:var(--sa);}
+.sq-o .sq-name{color:var(--sa);}
+.sq-o .sq-add{background:rgba(26,111,196,0.10);color:var(--sa);}
+.sq-o .sq-item-dot{background:var(--sa);}
+.sq-o .sq-count{background:rgba(26,111,196,0.10);color:var(--sa);}
+/* T = amber */
+.sq-t{background:linear-gradient(145deg,rgba(255,248,200,0.97),rgba(255,255,255,0.9));border-color:rgba(196,152,32,0.28);}
+.sq-t .sq-label{color:var(--au);}
+.sq-t .sq-name{color:var(--au);}
+.sq-t .sq-add{background:rgba(196,152,32,0.12);color:var(--au);}
+.sq-t .sq-item-dot{background:var(--au);}
+.sq-t .sq-count{background:rgba(196,152,32,0.12);color:var(--au);}
+.swot-summary{margin:0 14px 12px;background:var(--card);border-radius:20px;padding:14px 16px;box-shadow:var(--sh);border:1px solid rgba(0,0,0,0.06);}
+.swot-sum-title{font-family:'Playfair Display',serif;font-size:13px;font-weight:700;color:var(--t2);margin-bottom:10px;}
+.swot-bars{display:flex;flex-direction:column;gap:7px;}
+.swot-bar-row{display:flex;align-items:center;gap:8px;}
+.sbr-label{font-size:10px;font-weight:700;width:22px;text-align:center;}
+.sbr-track{flex:1;height:8px;background:rgba(0,0,0,0.06);border-radius:4px;overflow:hidden;}
+.sbr-fill{height:100%;border-radius:4px;transition:width 0.6s cubic-bezier(0.34,1.56,0.64,1);}
+.sbr-count{font-family:'DM Mono',monospace;font-size:10px;font-weight:700;width:18px;text-align:right;}
+
+/* ═══════════════════════════════════════════
+   SCREEN 3: PLANNER
+═══════════════════════════════════════════ */
+#sc-planner{background:radial-gradient(ellipse at 10% 0%,rgba(26,111,196,0.12) 0%,transparent 46%),var(--bg);}
+.week-strip{display:flex;gap:5px;padding:8px 14px;overflow-x:auto;scrollbar-width:none;}
+.week-strip::-webkit-scrollbar{display:none;}
+.wd{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 10px;border-radius:14px;cursor:pointer;flex-shrink:0;transition:all 0.2s;border:1.5px solid transparent;}
+.wd.today{background:var(--sa-pale);border-color:rgba(26,111,196,0.22);}
+.wd.active{background:var(--sa);border-color:var(--sa);box-shadow:0 4px 14px var(--sa-glow);}
+.wd-day{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--t3);}
+.wd.active .wd-day{color:rgba(255,255,255,0.75);}
+.wd-date{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;color:var(--t1);}
+.wd.active .wd-date{color:#fff;}
+.wd-dot{width:5px;height:5px;border-radius:50%;background:var(--sa);transition:background 0.2s;}
+.wd.active .wd-dot{background:rgba(255,255,255,0.5);}
+.task-list{padding:0 14px;}
+.task-block{margin-bottom:8px;}
+.tb-time{font-family:'DM Mono',monospace;font-size:9px;color:var(--t3);margin-bottom:4px;padding-left:2px;letter-spacing:1px;}
+.task-item{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:16px;background:var(--card);border:1.5px solid rgba(0,0,0,0.07);box-shadow:0 1px 6px rgba(0,0,0,0.05);cursor:pointer;transition:all 0.2s;-webkit-tap-highlight-color:transparent;}
+.task-item.done{opacity:0.55;}
+.task-chk{width:22px;height:22px;border-radius:50%;border:2px solid var(--sa);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;transition:all 0.22s cubic-bezier(0.34,1.56,0.64,1);}
+.task-item.done .task-chk{background:var(--sa);color:#fff;border-color:var(--sa);}
+.task-main{flex:1;min-width:0;}
+.task-title{font-size:13px;font-weight:600;color:var(--t1);line-height:1.2;}
+.task-item.done .task-title{text-decoration:line-through;color:var(--t3);}
+.task-meta{display:flex;align-items:center;gap:6px;margin-top:3px;}
+.task-dur{font-size:10px;color:var(--t3);}
+.task-pri{font-size:9px;font-weight:700;padding:2px 8px;border-radius:6px;}
+.pri-h{background:rgba(232,84,122,0.12);color:var(--ro);}
+.pri-m{background:rgba(196,152,32,0.12);color:var(--au);}
+.pri-l{background:rgba(21,168,84,0.10);color:var(--em);}
+.plan-fab{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px)+68px);right:calc(50% - 215px+16px);width:50px;height:50px;border-radius:50%;background:var(--sa);border:none;font-size:22px;color:#fff;box-shadow:0 6px 24px var(--sa-glow);cursor:pointer;z-index:100;display:none;transition:transform 0.2s;}
+.plan-fab.active{display:flex;align-items:center;justify-content:center;}
+.plan-fab:active{transform:scale(0.88);}
+.add-task-bar{margin:0 14px 10px;background:var(--card);border-radius:16px;border:1.5px solid rgba(26,111,196,0.22);padding:10px 12px;display:flex;align-items:center;gap:8px;box-shadow:var(--sh);}
+.atb-input{flex:1;border:none;outline:none;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--t1);background:transparent;}
+.atb-input::placeholder{color:var(--t4);}
+.atb-btn{padding:7px 14px;border:none;border-radius:10px;background:var(--sa);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;}
+
+/* ═══════════════════════════════════════════
+   SCREEN 4: HEALTH IS WEALTH / JOY
+═══════════════════════════════════════════ */
+#sc-health{background:radial-gradient(ellipse at 20% 5%,rgba(21,168,84,0.18) 0%,transparent 52%),radial-gradient(ellipse at 80% 12%,rgba(196,152,32,0.12) 0%,transparent 44%),var(--bg);}
+.hiw-brand{display:flex;align-items:center;justify-content:space-between;padding:16px 16px 6px;}
+.hiw-logo{display:flex;align-items:center;gap:9px;}
+.hiw-gem{width:36px;height:36px;border-radius:12px;background:linear-gradient(135deg,var(--em2),var(--em));display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 4px 16px var(--em-glow);animation:gemPulse 3s ease-in-out infinite;}
+@keyframes gemPulse{0%,100%{box-shadow:0 4px 16px var(--em-glow);}50%{box-shadow:0 4px 16px var(--em-glow),0 0 0 6px rgba(21,168,84,0.07);}}
+.hiw-name{font-family:'Playfair Display',serif;font-size:17px;font-weight:700;color:var(--t1);}
+.hiw-sub{font-size:9px;color:var(--t3);margin-top:-1px;}
+.hiw-wallet{background:linear-gradient(135deg,rgba(255,248,200,0.96),rgba(255,255,255,0.88));border:1.5px solid rgba(196,152,32,0.26);border-radius:100px;padding:7px 14px 7px 10px;display:flex;align-items:center;gap:7px;box-shadow:0 4px 14px rgba(196,152,32,0.22);}
+.hiw-coin{font-size:21px;animation:coinSpin 5s linear infinite;}
+@keyframes coinSpin{0%,70%,100%{transform:rotateY(0);}40%{transform:rotateY(180deg) scaleX(-1);}}
+.hiw-coin-val{font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:var(--au);}
+.hiw-streaks{display:flex;gap:10px;padding:8px 14px 0;}
+.hst-card{flex:1;border-radius:18px;padding:11px 12px;display:flex;align-items:center;gap:9px;box-shadow:var(--sh);}
+.hst-fire{background:linear-gradient(145deg,rgba(255,205,100,0.94),rgba(255,255,255,0.90));border:1.5px solid rgba(255,140,0,0.24);}
+.hst-drop{background:linear-gradient(145deg,rgba(213,236,255,0.94),rgba(255,255,255,0.90));border:1.5px solid rgba(26,111,196,0.22);}
+.hst-ico{font-size:26px;animation:stPop 2s ease-in-out infinite;}
+@keyframes stPop{0%,100%{transform:scale(1);}50%{transform:scale(1.18) translateY(-2px);}}
+.hst-num{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--t1);}
+.hst-lbl{font-size:9px;color:var(--t3);margin-top:1px;}
+/* Joy Thermometer */
+.joy-card{background:var(--card);border-radius:22px;margin:10px 14px;padding:14px;box-shadow:var(--sh);border:1px solid rgba(0,0,0,0.06);}
+.joy-card-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.joy-card-title{font-size:14px;font-weight:700;color:var(--t1);}
+.joy-date-badge{font-size:10px;font-weight:600;color:var(--t3);background:var(--em-pale);border-radius:14px;padding:2px 10px;}
+.joy-slider-row{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+.joy-num{font-family:'Syne',sans-serif;font-size:38px;font-weight:800;color:var(--au2);min-width:50px;transition:color 0.4s;}
+.joy-slider{flex:1;-webkit-appearance:none;height:8px;border-radius:4px;background:linear-gradient(90deg,var(--ro) 0%,var(--au2) 50%,var(--em) 100%);outline:none;cursor:pointer;}
+.joy-slider::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;border-radius:50%;background:#fff;border:2.5px solid var(--au2);box-shadow:0 2px 10px rgba(0,0,0,0.18);cursor:pointer;transition:border-color 0.3s;}
+.joy-mood-row{display:flex;justify-content:space-between;padding:0 2px;margin-bottom:12px;}
+.joy-mood-btn{font-size:22px;padding:4px;border:none;background:none;cursor:pointer;border-radius:8px;transition:transform 0.2s;opacity:0.5;}
+.joy-mood-btn.active{opacity:1;transform:scale(1.25);}
+.joy-mood-btn:active{transform:scale(0.88);}
+.joy-tags-row{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px;}
+.joy-tag{padding:4px 11px;border-radius:100px;font-size:10px;font-weight:600;border:1.5px solid;cursor:pointer;transition:all 0.2s;}
+.joy-tag.active{color:#fff!important;}
+/* Habit checks */
+.habit-row{display:flex;flex-wrap:wrap;gap:7px;padding:4px 0;}
+.habit-chip{display:flex;align-items:center;gap:5px;padding:7px 12px;border-radius:100px;background:rgba(0,0,0,0.04);border:1.5px solid rgba(0,0,0,0.09);cursor:pointer;transition:all 0.22s cubic-bezier(0.34,1.56,0.64,1);font-size:11px;font-weight:600;color:var(--t2);}
+.habit-chip.done{background:var(--em-pale);border-color:rgba(21,168,84,0.28);color:var(--em);}
+.habit-chip:active{transform:scale(0.90);}
+/* Joy Journal */
+.je-card{background:var(--card);border-radius:22px;margin:0 14px 12px;box-shadow:var(--sh);border:1px solid rgba(0,0,0,0.06);overflow:hidden;}
+.je-card-hdr{padding:12px 14px 0;font-size:13px;font-weight:700;color:var(--t1);}
+.je-ta{width:100%;padding:10px 14px;border:none;outline:none;resize:none;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--t1);background:transparent;min-height:90px;line-height:1.6;}
+.je-ta::placeholder{color:var(--t4);font-style:italic;}
+.je-footer{display:flex;align-items:center;justify-content:space-between;padding:8px 14px 12px;border-top:1px solid rgba(0,0,0,0.06);}
+.je-count{font-family:'DM Mono',monospace;font-size:10px;color:var(--t3);}
+.je-save{padding:8px 18px;border:none;border-radius:10px;background:var(--em);color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 3px 12px var(--em-glow);}
+.je-entries{padding:0 14px 0;}
+.je-entry{padding:10px 12px;border-radius:14px;background:rgba(255,255,255,0.7);border:1px solid rgba(0,0,0,0.06);margin-bottom:7px;}
+.je-entry-date{font-family:'DM Mono',monospace;font-size:9px;color:var(--t3);display:block;margin-bottom:3px;}
+.je-entry-text{font-size:12px;color:var(--t2);line-height:1.55;}
+
+/* ═══════════════════════════════════════════
+   SCREEN 5: TAXCHAIN
+═══════════════════════════════════════════ */
+#sc-tax{background:radial-gradient(ellipse at 70% 0%,rgba(13,155,138,0.16) 0%,transparent 50%),radial-gradient(ellipse at 10% 8%,rgba(196,152,32,0.10) 0%,transparent 44%),var(--bg);}
+.tax-hero{margin:8px 14px;border-radius:24px;background:linear-gradient(145deg,#0D1825,#0E2338,#0D2B20);padding:20px 18px;position:relative;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.28);}
+.tax-hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 75% 25%,rgba(13,155,138,0.35),transparent 60%),radial-gradient(ellipse at 20% 80%,rgba(196,152,32,0.22),transparent 50%);}
+.tax-hdr{position:relative;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.tax-chain-label{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.45);}
+.tax-badge{padding:5px 12px;border-radius:100px;background:rgba(13,155,138,0.22);border:1px solid rgba(13,155,138,0.4);font-size:10px;font-weight:700;color:var(--tc2);}
+.tax-bal{position:relative;}
+.tax-bal-label{font-size:10px;color:rgba(255,255,255,0.45);margin-bottom:3px;}
+.tax-bal-num{font-family:'Syne',sans-serif;font-size:32px;font-weight:800;color:#fff;line-height:1;}
+.tax-bal-sub{font-size:11px;color:rgba(255,255,255,0.45);margin-top:2px;}
+.tax-gain-row{display:flex;gap:10px;margin-top:14px;position:relative;}
+.tax-gain{flex:1;background:rgba(255,255,255,0.07);border-radius:14px;padding:10px 12px;border:1px solid rgba(255,255,255,0.08);}
+.tg-label{font-size:9px;color:rgba(255,255,255,0.45);margin-bottom:4px;font-weight:600;}
+.tg-val{font-family:'DM Mono',monospace;font-size:15px;font-weight:700;}
+.tg-pos{color:var(--tc2);}
+.tg-neg{color:#FF7A9A;}
+.tg-sub{font-size:9px;color:rgba(255,255,255,0.35);margin-top:2px;}
+.tax-cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:0 14px 12px;}
+.tax-cat{border-radius:18px;padding:13px;border:1.5px solid;box-shadow:var(--sh);}
+.tc-em{background:linear-gradient(145deg,rgba(220,248,230,0.97),rgba(255,255,255,0.9));border-color:rgba(21,168,84,0.24);}
+.tc-ro{background:linear-gradient(145deg,rgba(255,226,232,0.97),rgba(255,255,255,0.9));border-color:rgba(232,84,122,0.22);}
+.tc-sa{background:linear-gradient(145deg,rgba(213,236,255,0.97),rgba(255,255,255,0.9));border-color:rgba(26,111,196,0.22);}
+.tc-au{background:linear-gradient(145deg,rgba(255,248,200,0.97),rgba(255,255,255,0.9));border-color:rgba(196,152,32,0.26);}
+.tcat-ico{font-size:22px;margin-bottom:6px;}
+.tcat-name{font-size:10px;font-weight:700;color:var(--t2);letter-spacing:0.3px;}
+.tcat-val{font-family:'DM Mono',monospace;font-size:16px;font-weight:700;margin-top:2px;}
+.tcat-count{font-size:9px;color:var(--t3);margin-top:1px;}
+.tx-list{margin:0 14px 12px;}
+.tx-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:16px;background:var(--card);border:1.5px solid rgba(0,0,0,0.06);margin-bottom:7px;box-shadow:0 1px 6px rgba(0,0,0,0.05);}
+.tx-ico-wrap{width:36px;height:36px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
+.tx-info{flex:1;min-width:0;}
+.tx-name{font-size:12.5px;font-weight:600;color:var(--t1);}
+.tx-date{font-size:10px;color:var(--t3);margin-top:1px;}
+.tx-amt{text-align:right;}
+.tx-amt-val{font-family:'DM Mono',monospace;font-size:13px;font-weight:700;}
+.tx-cat-pill{font-size:9px;font-weight:600;padding:2px 7px;border-radius:6px;margin-top:2px;display:inline-block;}
+.tax-export{margin:0 14px 12px;padding:14px;border-radius:20px;background:linear-gradient(135deg,rgba(13,155,138,0.10),rgba(196,152,32,0.08));border:1.5px solid rgba(13,155,138,0.22);display:flex;align-items:center;gap:14px;box-shadow:var(--sh);}
+.te-icon{font-size:28px;}
+.te-text{flex:1;}
+.te-title{font-family:'Playfair Display',serif;font-size:13px;font-weight:700;color:var(--t1);}
+.te-sub{font-size:10px;color:var(--t3);margin-top:2px;}
+.te-btn{padding:10px 16px;border:none;border-radius:12px;background:var(--tc);color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 3px 12px var(--tc-glow);}
+
+/* TOAST */
+#toast{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px)+70px);left:50%;transform:translateX(-50%) translateY(120px);background:rgba(26,30,46,0.96);border:1px solid rgba(255,255,255,0.12);border-radius:100px;padding:12px 20px;font-family:'DM Sans',sans-serif;font-size:13px;color:rgba(255,255,255,0.92);white-space:nowrap;box-shadow:0 8px 32px rgba(0,0,0,0.36);z-index:99999;transition:transform 0.4s cubic-bezier(0.34,1.56,0.64,1);pointer-events:none;}
+#toast.show{transform:translateX(-50%) translateY(0);}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+.screen.active > *{animation:fadeUp 0.3s ease forwards;}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- STATUS BAR -->
+<div id="sbar">
+  <span class="sbar-time" id="sbar-time">9:41</span>
+  <div class="sbar-icons"><span>●●●</span><span>WiFi</span><span>🔋</span></div>
+</div>
+
+<!-- WORKFLOW STRIP -->
+<div id="wf-strip">
+  <div class="wf-step"><div class="wf-dot active" id="wfd-vision" onclick="nav('vision')" title="Hierarchy Vision">🏔</div><div class="wf-line" id="wfl-1"></div></div>
+  <div class="wf-step"><div class="wf-dot" id="wfd-swot" onclick="nav('swot')" title="SWOT">📊</div><div class="wf-line" id="wfl-2"></div></div>
+  <div class="wf-step"><div class="wf-dot" id="wfd-planner" onclick="nav('planner')" title="Planner">📅</div><div class="wf-line" id="wfl-3"></div></div>
+  <div class="wf-step"><div class="wf-dot" id="wfd-health" onclick="nav('health')" title="Health">💚</div><div class="wf-line" id="wfl-4"></div></div>
+  <div class="wf-step"><div class="wf-dot" id="wfd-tax" onclick="nav('tax')" title="TaxChain">⛓</div></div>
+</div>
+
+<!-- SCREEN CONTAINER -->
+<div id="sc">
+
+<!-- ══ SCREEN 1: HIERARCHY VISION ══ -->
+<div class="screen active" id="sc-vision">
+  <div class="page-hdr">
+    <div><div class="ph-title">Hierarchy<br>Vision</div><div class="ph-sub">Your life blueprint</div></div>
+    <button class="ph-badge" style="background:var(--vi-pale);color:var(--vi);border:1.5px solid rgba(124,58,237,0.2);" onclick="showToast('🏔️ Vision synced!')">Sync</button>
+  </div>
+
+  <!-- TIER 1: LIFE VISION -->
+  <div class="vis-tier vis-t1">
+    <div class="vis-tier-hdr">
+      <div class="vis-tier-ico">🌌</div>
+      <div class="vis-tier-info">
+        <div class="vis-tier-tag">Tier 1 · Life Vision</div>
+        <div class="vis-tier-name">North Star Principles</div>
+      </div>
+      <span style="font-size:18px;color:var(--t3)">›</span>
+    </div>
+    <div class="vis-tier-prog"><div class="vis-tier-fill" id="vt1-prog" style="width:33%"></div></div>
+    <div class="vis-tier-body" id="vt1-body">
+      <div class="vis-goal-item vis-t1-item done" onclick="toggleVis(this,'t1')"><div class="vis-chk">✓</div><span class="vis-goal-text">Live with full intentionality & purpose</span></div>
+      <div class="vis-goal-item vis-t1-item" onclick="toggleVis(this,'t1')"><div class="vis-chk"></div><span class="vis-goal-text">Build generational wealth & freedom</span></div>
+      <div class="vis-goal-item vis-t1-item" onclick="toggleVis(this,'t1')"><div class="vis-chk"></div><span class="vis-goal-text">Lead with legacy — inspire 1000 people</span></div>
+      <button class="vis-add-btn" onclick="openAddModal('t1','Life Vision')">+ Add principle</button>
+    </div>
+  </div>
+
+  <!-- TIER 2: YEARLY GOALS -->
+  <div class="vis-tier vis-t2">
+    <div class="vis-tier-hdr">
+      <div class="vis-tier-ico">🎯</div>
+      <div class="vis-tier-info">
+        <div class="vis-tier-tag">Tier 2 · Yearly Goals</div>
+        <div class="vis-tier-name">2025 Milestones</div>
+      </div>
+      <span style="font-size:18px;color:var(--t3)">›</span>
+    </div>
+    <div class="vis-tier-prog"><div class="vis-tier-fill" id="vt2-prog" style="width:50%"></div></div>
+    <div class="vis-tier-body" id="vt2-body">
+      <div class="vis-goal-item vis-t2-item done" onclick="toggleVis(this,'t2')"><div class="vis-chk">✓</div><span class="vis-goal-text">Launch first income-generating product</span></div>
+      <div class="vis-goal-item vis-t2-item done" onclick="toggleVis(this,'t2')"><div class="vis-chk">✓</div><span class="vis-goal-text">Achieve 90-day health streak</span></div>
+      <div class="vis-goal-item vis-t2-item" onclick="toggleVis(this,'t2')"><div class="vis-chk"></div><span class="vis-goal-text">Publish thought-leadership content weekly</span></div>
+      <div class="vis-goal-item vis-t2-item" onclick="toggleVis(this,'t2')"><div class="vis-chk"></div><span class="vis-goal-text">File taxes with full crypto compliance</span></div>
+      <button class="vis-add-btn" onclick="openAddModal('t2','Yearly Goal')">+ Add goal</button>
+    </div>
+  </div>
+
+  <!-- TIER 3: MONTHLY ACTIONS -->
+  <div class="vis-tier vis-t3">
+    <div class="vis-tier-hdr">
+      <div class="vis-tier-ico">⚡</div>
+      <div class="vis-tier-info">
+        <div class="vis-tier-tag">Tier 3 · Monthly Actions</div>
+        <div class="vis-tier-name">April Sprints</div>
+      </div>
+      <span style="font-size:18px;color:var(--t3)">›</span>
+    </div>
+    <div class="vis-tier-prog"><div class="vis-tier-fill" id="vt3-prog" style="width:66%"></div></div>
+    <div class="vis-tier-body" id="vt3-body">
+      <div class="vis-goal-item vis-t3-item done" onclick="toggleVis(this,'t3')"><div class="vis-chk">✓</div><span class="vis-goal-text">Complete SWOT analysis for Q2</span></div>
+      <div class="vis-goal-item vis-t3-item done" onclick="toggleVis(this,'t3')"><div class="vis-chk">✓</div><span class="vis-goal-text">Set up TaxChain wallet tracking</span></div>
+      <div class="vis-goal-item vis-t3-item done" onclick="toggleVis(this,'t3')"><div class="vis-chk">✓</div><span class="vis-goal-text">Log joy score for 14 consecutive days</span></div>
+      <div class="vis-goal-item vis-t3-item" onclick="toggleVis(this,'t3')"><div class="vis-chk"></div><span class="vis-goal-text">Book quarterly review with accountant</span></div>
+      <div class="vis-goal-item vis-t3-item" onclick="toggleVis(this,'t3')"><div class="vis-chk"></div><span class="vis-goal-text">Draft vision board for Q3 theme</span></div>
+      <button class="vis-add-btn" onclick="openAddModal('t3','Monthly Action')">+ Add action</button>
+    </div>
+  </div>
+</div><!-- end sc-vision -->
+
+<!-- ══ SCREEN 2: SWOT ══ -->
+<div class="screen" id="sc-swot">
+  <div class="page-hdr">
+    <div><div class="ph-title">SWOT<br>Analysis</div><div class="ph-sub">Strategic self-assessment</div></div>
+    <button class="ph-badge" style="background:var(--au-pale);color:var(--au);border:1.5px solid rgba(196,152,32,0.22);" onclick="exportSWOT()">Export</button>
+  </div>
+
+  <div class="swot-grid">
+    <!-- STRENGTHS -->
+    <div class="swot-q sq-s">
+      <div class="sq-hdr">
+        <div><div class="sq-label">S</div><div class="sq-name">Strengths</div></div>
+        <button class="sq-add" onclick="addSwotItem('s')">+</button>
+      </div>
+      <div class="sq-items" id="swot-s">
+        <div class="sq-item" onclick="removeSwotItem(this)"><span class="sq-item-dot"></span>Resilient mindset</div>
+        <div class="sq-item" onclick="removeSwotItem(this)"><span class="sq-item-dot"></span>Tech-savvy</div>
+        <div class="sq-item" onclick="removeSwotItem(this)"><span class="sq-item-dot"></span>Multi-app ecosystem</div>
+      </div>
+    </div>
+    <!-- WEAKNESSES -->
+    <div class="swot-q sq-w">
+      <div class="sq-hdr">
+        <div><div class="sq-label">W</div><div class="sq-name">Weaknesses</div></div>
+        <button class="sq-add" onclick="addSwotItem('w')">+</button>
+      </div>
+      <div class="sq-items" id="swot-w">
+        <div class="sq-item" onclick="removeSwotItem(this)"><span class="sq-item-dot"></span>Inconsistent planning</div>
+        <div class="sq-item" onclick="removeSwotItem(this)"><span class="sq-item-dot"></span>Tax complexity</div>
+      </div>
+    </div>
+    <!-- OPPORTUNITIES -->
+    <div class="swot-q sq-o">
+      <div class="sq-hdr">
+        <div><div class="sq-label">O</div><div class="sq-name">Opportunities</div></div>
+        <button class="sq-add" onclick="addSwotItem('o')">+</button>
+      </div>
+      <div class="sq-items" id="swot-o">
+        <div class="sq-item" onclick="removeSwotItem(this)"><span class="sq-item-dot"></span>DeFi passive income</div>
+        <div class="sq-item" onclick="removeSwotItem(this)"><span class="sq-item-dot"></span>Wellness market growth</div>
+        <div class="sq-item" onclick="removeSwotItem(this)"><span class="sq-item-dot"></span>AI automation tools</div>
+      </div>
+    </div>
+    <!-- THREATS -->
+    <div class="swot-q sq-t">
+      <div class="sq-hdr">
+        <div><div class="sq-label">T</div><div class="sq-name">Threats</div></div>
+        <button class="sq-add" onclick="addSwotItem('t')">+</button>
+      </div>
+      <div class="sq-items" id="swot-t">
+        <div class="sq-item" onclick="removeSwotItem(this)"><span class="sq-item-dot"></span>Crypto regulation</div>
+        <div class="sq-item" onclick="removeSwotItem(this)"><span class="sq-item-dot"></span>Market volatility</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <div class="swot-summary">
+    <div class="swot-sum-title">Balance Summary</div>
+    <div class="swot-bars" id="swot-bars">
+      <div class="swot-bar-row"><span class="sbr-label" style="color:var(--em)">S</span><div class="sbr-track"><div class="sbr-fill" id="sbar-s" style="width:60%;background:var(--em)"></div></div><span class="sbr-count" id="scount-s" style="color:var(--em)">3</span></div>
+      <div class="swot-bar-row"><span class="sbr-label" style="color:var(--ro)">W</span><div class="sbr-track"><div class="sbr-fill" id="sbar-w" style="width:40%;background:var(--ro)"></div></div><span class="sbr-count" id="scount-w" style="color:var(--ro)">2</span></div>
+      <div class="swot-bar-row"><span class="sbr-label" style="color:var(--sa)">O</span><div class="sbr-track"><div class="sbr-fill" id="sbar-o" style="width:60%;background:var(--sa)"></div></div><span class="sbr-count" id="scount-o" style="color:var(--sa)">3</span></div>
+      <div class="swot-bar-row"><span class="sbr-label" style="color:var(--au)">T</span><div class="sbr-track"><div class="sbr-fill" id="sbar-t" style="width:40%;background:var(--au)"></div></div><span class="sbr-count" id="scount-t" style="color:var(--au)">2</span></div>
+    </div>
+  </div>
+</div><!-- end sc-swot -->
+
+<!-- ══ SCREEN 3: PLANNER ══ -->
+<div class="screen" id="sc-planner">
+  <div class="page-hdr">
+    <div><div class="ph-title">Daily<br>Planner</div><div class="ph-sub">Execute your vision</div></div>
+    <button class="ph-badge" style="background:var(--sa-pale);color:var(--sa);border:1.5px solid rgba(26,111,196,0.2);" onclick="showToast('📅 Schedule synced!')">Sync</button>
+  </div>
+
+  <!-- Week strip -->
+  <div class="week-strip" id="week-strip"></div>
+
+  <!-- Add task bar -->
+  <div class="add-task-bar">
+    <span style="font-size:16px">✏️</span>
+    <input class="atb-input" id="task-input" placeholder="Add a task for today…" onkeydown="if(event.key==='Enter')addTask()">
+    <button class="atb-btn" onclick="addTask()">Add</button>
+  </div>
+
+  <!-- Task list -->
+  <div class="task-list" id="task-list"></div>
+</div><!-- end sc-planner -->
+
+<!-- ══ SCREEN 4: HEALTH / JOY ══ -->
+<div class="screen" id="sc-health">
+  <!-- Brand header -->
+  <div class="hiw-brand">
+    <div class="hiw-logo">
+      <div class="hiw-gem">🌿</div>
+      <div><div class="hiw-name">HealthIsWealth</div><div class="hiw-sub">Joy · Habit · Wellness</div></div>
+    </div>
+    <div class="hiw-wallet"><span class="hiw-coin">🪙</span><div><div class="hiw-coin-val" id="hiw-xp">6,720</div><div style="font-size:8px;color:var(--t3);letter-spacing:1px;">XP</div></div></div>
+  </div>
+
+  <!-- Streaks -->
+  <div class="hiw-streaks">
+    <div class="hst-card hst-fire"><span class="hst-ico">🔥</span><div><div class="hst-num" id="fire-streak">21</div><div class="hst-lbl">Day Streak</div></div></div>
+    <div class="hst-card hst-drop"><span class="hst-ico">💧</span><div><div class="hst-num" id="water-streak">8</div><div class="hst-lbl">Cups Today</div></div></div>
+  </div>
+
+  <!-- Joy thermometer -->
+  <div class="joy-card" id="joy-card-main">
+    <div class="joy-card-hdr">
+      <span class="joy-card-title">🌡️ Joy Score</span>
+      <span class="joy-date-badge" id="joy-date">Today</span>
+    </div>
+    <div class="joy-slider-row">
+      <div id="joy-display" class="joy-num">7</div>
+      <input type="range" class="joy-slider" id="joy-slider" min="1" max="10" value="7" oninput="updateJoy(this.value)">
+    </div>
+    <div class="joy-mood-row" id="joy-mood-row">
+      <button class="joy-mood-btn" onclick="selectMood(this,'😔')">😔</button>
+      <button class="joy-mood-btn" onclick="selectMood(this,'😐')">😐</button>
+      <button class="joy-mood-btn active" onclick="selectMood(this,'🙂')">🙂</button>
+      <button class="joy-mood-btn" onclick="selectMood(this,'😄')">😄</button>
+      <button class="joy-mood-btn" onclick="selectMood(this,'🤩')">🤩</button>
+    </div>
+    <div class="joy-tags-row" id="joy-tags">
+      <span class="joy-tag" style="background:rgba(21,168,84,0.1);color:var(--em);border-color:rgba(21,168,84,0.22)" onclick="toggleJoyTag(this,'em')">🧘 Calm</span>
+      <span class="joy-tag" style="background:rgba(26,111,196,0.09);color:var(--sa);border-color:rgba(26,111,196,0.20)" onclick="toggleJoyTag(this,'sa')">💡 Focused</span>
+      <span class="joy-tag" style="background:rgba(232,84,122,0.09);color:var(--ro);border-color:rgba(232,84,122,0.18)" onclick="toggleJoyTag(this,'ro')">❤️ Grateful</span>
+      <span class="joy-tag" style="background:rgba(196,152,32,0.09);color:var(--au);border-color:rgba(196,152,32,0.20)" onclick="toggleJoyTag(this,'au')">⚡ Energised</span>
+      <span class="joy-tag" style="background:rgba(124,58,237,0.09);color:var(--vi);border-color:rgba(124,58,237,0.18)" onclick="toggleJoyTag(this,'vi')">🎯 Motivated</span>
+    </div>
+  </div>
+
+  <!-- Habit checks -->
+  <div class="card" style="padding:14px;">
+    <div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:10px;">✅ Daily Habits</div>
+    <div class="habit-row" id="habit-row">
+      <div class="habit-chip" onclick="toggleHabit(this)">💧 Hydrate</div>
+      <div class="habit-chip done" onclick="toggleHabit(this)">🏃 Move</div>
+      <div class="habit-chip done" onclick="toggleHabit(this)">🥗 Nourish</div>
+      <div class="habit-chip" onclick="toggleHabit(this)">😴 Sleep 8h</div>
+      <div class="habit-chip done" onclick="toggleHabit(this)">🧘 Breathe</div>
+      <div class="habit-chip" onclick="toggleHabit(this)">📖 Read</div>
+    </div>
+  </div>
+
+  <!-- Joy journal -->
+  <div class="je-card">
+    <div class="je-card-hdr">✍️ Joy Journal</div>
+    <textarea class="je-ta" id="je-ta" placeholder="What's on your mind today? Reflect, process, celebrate… 🌿" oninput="jeCount()"></textarea>
+    <div class="je-footer">
+      <span class="je-count" id="je-count">0 / 500</span>
+      <button class="je-save" onclick="jeSave()">Save Entry ✨</button>
+    </div>
+  </div>
+
+  <div class="section-title">📒 Past Entries</div>
+  <div class="je-entries" id="je-entries">
+    <div style="padding:12px 14px;font-size:12px;font-style:italic;color:var(--t3);">Your saved entries will appear here…</div>
+  </div>
+</div><!-- end sc-health -->
+
+<!-- ══ SCREEN 5: TAXCHAIN ══ -->
+<div class="screen" id="sc-tax">
+  <div class="page-hdr">
+    <div><div class="ph-title">Tax<br>Chain</div><div class="ph-sub">Crypto tax & portfolio</div></div>
+    <button class="ph-badge" style="background:var(--tc-pale);color:var(--tc);border:1.5px solid rgba(13,155,138,0.22);" onclick="showToast('⛓️ Chain synced!')">Sync</button>
+  </div>
+
+  <!-- Hero card -->
+  <div class="tax-hero">
+    <div class="tax-hdr">
+      <span class="tax-chain-label">⛓ TaxChain · 2025</span>
+      <span class="tax-badge">FY Active</span>
+    </div>
+    <div class="tax-bal">
+      <div class="tax-bal-label">Total Portfolio Value</div>
+      <div class="tax-bal-num">£48,320</div>
+      <div class="tax-bal-sub">+12.4% this tax year · 3 wallets connected</div>
+    </div>
+    <div class="tax-gain-row">
+      <div class="tax-gain"><div class="tg-label">Capital Gains</div><div class="tg-val tg-pos">+£6,840</div><div class="tg-sub">Taxable events: 24</div></div>
+      <div class="tax-gain"><div class="tg-label">DeFi Income</div><div class="tg-val tg-pos">+£1,240</div><div class="tg-sub">Staking + yield</div></div>
+      <div class="tax-gain"><div class="tg-label">Tax Due Est.</div><div class="tg-val tg-neg">-£1,720</div><div class="tg-sub">CGT + income</div></div>
+    </div>
+  </div>
+
+  <!-- Categories -->
+  <div class="section-title">By Category</div>
+  <div class="tax-cat-grid">
+    <div class="tax-cat tc-em" onclick="showToast('🟢 DeFi: 14 events')"><div class="tcat-ico">🌾</div><div class="tcat-name">DeFi / Staking</div><div class="tcat-val" style="color:var(--em)">£1,240</div><div class="tcat-count">14 transactions</div></div>
+    <div class="tax-cat tc-sa" onclick="showToast('🔵 Trading: 24 events')"><div class="tcat-ico">📈</div><div class="tcat-name">Trading Gains</div><div class="tcat-val" style="color:var(--sa)">£6,840</div><div class="tcat-count">24 transactions</div></div>
+    <div class="tax-cat tc-ro" onclick="showToast('🔴 NFT: 3 events')"><div class="tcat-ico">🎨</div><div class="tcat-name">NFT Sales</div><div class="tcat-val" style="color:var(--ro)">-£320</div><div class="tcat-count">3 transactions</div></div>
+    <div class="tax-cat tc-au" onclick="showToast('🟡 Airdrop: 7 events')"><div class="tcat-ico">🪂</div><div class="tcat-name">Airdrops</div><div class="tcat-val" style="color:var(--au)">£480</div><div class="tcat-count">7 transactions</div></div>
+  </div>
+
+  <!-- Recent transactions -->
+  <div class="section-title">Recent Transactions</div>
+  <div class="tx-list">
+    <div class="tx-item"><div class="tx-ico-wrap" style="background:rgba(21,168,84,0.12)">🌾</div><div class="tx-info"><div class="tx-name">ETH Staking Reward</div><div class="tx-date">Apr 9, 2025 · Lido</div></div><div class="tx-amt"><div class="tx-amt-val" style="color:var(--em)">+£42</div><span class="tx-cat-pill" style="background:rgba(21,168,84,0.10);color:var(--em)">DeFi Income</span></div></div>
+    <div class="tx-item"><div class="tx-ico-wrap" style="background:rgba(26,111,196,0.10)">📈</div><div class="tx-info"><div class="tx-name">BTC → USDC Swap</div><div class="tx-date">Apr 7, 2025 · Coinbase</div></div><div class="tx-amt"><div class="tx-amt-val" style="color:var(--sa)">+£1,240</div><span class="tx-cat-pill" style="background:rgba(26,111,196,0.09);color:var(--sa)">Capital Gain</span></div></div>
+    <div class="tx-item"><div class="tx-ico-wrap" style="background:rgba(232,84,122,0.10)">🎨</div><div class="tx-info"><div class="tx-name">NFT Sale — CryptoPunk #491</div><div class="tx-date">Apr 3, 2025 · OpenSea</div></div><div class="tx-amt"><div class="tx-amt-val" style="color:var(--ro)">-£320</div><span class="tx-cat-pill" style="background:rgba(232,84,122,0.09);color:var(--ro)">NFT Loss</span></div></div>
+    <div class="tx-item"><div class="tx-ico-wrap" style="background:rgba(196,152,32,0.12)">🪂</div><div class="tx-info"><div class="tx-name">ARB Airdrop Claim</div><div class="tx-date">Mar 28, 2025 · Arbitrum</div></div><div class="tx-amt"><div class="tx-amt-val" style="color:var(--au)">+£180</div><span class="tx-cat-pill" style="background:rgba(196,152,32,0.10);color:var(--au)">Airdrop Income</span></div></div>
+  </div>
+
+  <!-- Export -->
+  <div class="tax-export">
+    <span class="te-icon">📋</span>
+    <div class="te-text"><div class="te-title">Export Tax Report</div><div class="te-sub">HMRC-ready CSV & PDF summary</div></div>
+    <button class="te-btn" onclick="showToast('📋 Report generated!')">Export</button>
+  </div>
+</div><!-- end sc-tax -->
+
+</div><!-- end #sc -->
+
+<!-- ADD MODAL (Vision) -->
+<div class="vis-add-modal" id="vis-add-modal" onclick="closeAddModal(event)">
+  <div class="vis-add-sheet">
+    <div class="vas-title" id="vas-title">Add to Vision</div>
+    <input class="vas-input" id="vas-input" placeholder="Enter your goal or action…" onkeydown="if(event.key==='Enter')saveAddModal()">
+    <div class="vas-btns">
+      <button class="vas-cancel" onclick="closeAddModal()">Cancel</button>
+      <button class="vas-save" onclick="saveAddModal()">Add ✦</button>
+    </div>
+  </div>
+</div>
+
+<!-- TAB BAR -->
+<nav id="tabbar">
+  <button class="tbi active" id="tbi-vision" onclick="nav('vision')"><span class="tbi-ico">🏔️</span><span class="tbi-lbl">Vision</span></button>
+  <button class="tbi" id="tbi-swot" onclick="nav('swot')"><span class="tbi-ico">📊</span><span class="tbi-lbl">SWOT</span></button>
+  <button class="tbi" id="tbi-planner" onclick="nav('planner')"><span class="tbi-ico">📅</span><span class="tbi-lbl">Planner</span></button>
+  <button class="tbi" id="tbi-health" onclick="nav('health')"><span class="tbi-ico">💚</span><span class="tbi-lbl">Joy</span></button>
+  <button class="tbi" id="tbi-tax" onclick="nav('tax')"><span class="tbi-ico">⛓️</span><span class="tbi-lbl">TaxChain</span></button>
+</nav>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+/* ══ NAVIGATION ══ */
+var SCREENS = ['vision','swot','planner','health','tax'];
+var COLORS = {
+  vision: {color:'--vi', pale:'--vi-pale', glow:'--vi-glow'},
+  swot:   {color:'--au', pale:'--au-pale', glow:'--au-glow'},
+  planner:{color:'--sa', pale:'--sa-pale', glow:'--sa-glow'},
+  health: {color:'--em', pale:'--em-pale', glow:'--em-glow'},
+  tax:    {color:'--tc', pale:'--tc-pale', glow:'--tc-glow'},
+};
+var _cur = 'vision';
+
+function nav(id) {
+  if (id === _cur) return;
+  document.getElementById('sc-'+_cur).classList.remove('active');
+  document.getElementById('tbi-'+_cur).classList.remove('active');
+  _cur = id;
+  document.getElementById('sc-'+id).classList.add('active');
+  document.getElementById('tbi-'+id).classList.add('active');
+  var c = COLORS[id];
+  document.documentElement.style.setProperty('--active-color', 'var('+c.color+')');
+  document.documentElement.style.setProperty('--active-pale',  'var('+c.pale+')');
+  document.documentElement.style.setProperty('--active-glow',  'var('+c.glow+')');
+  // Update workflow dots
+  SCREENS.forEach(function(s,i){
+    var dot = document.getElementById('wfd-'+s);
+    var idx = SCREENS.indexOf(id);
+    dot.classList.remove('active','done');
+    if (i < idx) dot.classList.add('done');
+    else if (i === idx) dot.classList.add('active');
+    var line = document.getElementById('wfl-'+(i+1));
+    if (line) line.style.background = (i < idx) ? 'var(--em)' : 'rgba(0,0,0,0.08)';
+  });
+  // FAB
+  document.querySelector('.plan-fab') && (document.querySelector('.plan-fab').classList.toggle('active', id==='planner'));
+}
+
+/* ══ CLOCK ══ */
+function updateClock(){
+  var d=new Date(),h=d.getHours(),m=d.getMinutes();
+  document.getElementById('sbar-time').textContent=(h%12||12)+':'+(m<10?'0':'')+m;
+}
+updateClock(); setInterval(updateClock,30000);
+
+/* ══ JOY DATE ══ */
+var days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+(function(){var d=new Date();document.getElementById('joy-date').textContent=days[d.getDay()]+' '+d.getDate()+' '+months[d.getMonth()];})();
+
+/* ══ VISION ══ */
+function toggleVis(el, tier){
+  el.classList.toggle('done');
+  var items = document.querySelectorAll('.vis-'+tier+'-item');
+  var done = document.querySelectorAll('.vis-'+tier+'-item.done').length;
+  var pct = Math.round((done/items.length)*100);
+  document.getElementById('vt'+({'t1':1,'t2':2,'t3':3}[tier])+'-prog').style.width = pct+'%';
+  showToast(el.classList.contains('done') ? '✓ Marked complete!' : '○ Marked pending');
+}
+
+var _addTier = null;
+function openAddModal(tier, label){
+  _addTier = tier;
+  document.getElementById('vas-title').textContent = '+ Add '+label;
+  document.getElementById('vas-input').value='';
+  document.getElementById('vis-add-modal').classList.add('open');
+  setTimeout(function(){document.getElementById('vas-input').focus();},100);
+}
+function closeAddModal(e){
+  if (!e || e.target===document.getElementById('vis-add-modal'))
+    document.getElementById('vis-add-modal').classList.remove('open');
+}
+function saveAddModal(){
+  var val = document.getElementById('vas-input').value.trim();
+  if (!val) return;
+  var body = document.getElementById('v'+_addTier+'-body');
+  var addBtn = body.querySelector('.vis-add-btn');
+  var item = document.createElement('div');
+  item.className = 'vis-goal-item vis-'+_addTier+'-item';
+  item.setAttribute('onclick','toggleVis(this,"'+_addTier+'")');
+  item.innerHTML = '<div class="vis-chk"></div><span class="vis-goal-text">'+val+'</span>';
+  body.insertBefore(item, addBtn);
+  document.getElementById('vis-add-modal').classList.remove('open');
+  showToast('✦ Added to vision!');
+}
+
+/* ══ SWOT ══ */
+function addSwotItem(q){
+  var label = prompt('Add to '+(q==='s'?'Strengths':q==='w'?'Weaknesses':q==='o'?'Opportunities':'Threats')+':');
+  if (!label || !label.trim()) return;
+  var container = document.getElementById('swot-'+q);
+  var item = document.createElement('div');
+  item.className='sq-item';
+  item.setAttribute('onclick','removeSwotItem(this)');
+  item.innerHTML='<span class="sq-item-dot"></span>'+label.trim();
+  container.appendChild(item);
+  updateSwotBars();
+  showToast('✦ Added to '+q.toUpperCase()+'!');
+}
+function removeSwotItem(el){
+  if(confirm('Remove "'+el.textContent.trim()+'"?')){el.remove();updateSwotBars();}
+}
+function updateSwotBars(){
+  ['s','w','o','t'].forEach(function(q){
+    var n = document.getElementById('swot-'+q).children.length;
+    var max = 6;
+    document.getElementById('sbar-'+q).style.width = Math.min(n/max*100,100)+'%';
+    document.getElementById('scount-'+q).textContent = n;
+  });
+}
+function exportSWOT(){
+  var out='SWOT ANALYSIS\n\n';
+  ['s','w','o','t'].forEach(function(q){
+    var label={s:'STRENGTHS',w:'WEAKNESSES',o:'OPPORTUNITIES',t:'THREATS'}[q];
+    out+=label+':\n';
+    document.getElementById('swot-'+q).querySelectorAll('.sq-item').forEach(function(i){out+='• '+i.textContent.trim()+'\n';});
+    out+='\n';
+  });
+  var a=document.createElement('a');
+  a.href='data:text/plain;charset=utf-8,'+encodeURIComponent(out);
+  a.download='SWOT_Analysis.txt';
+  a.click();
+  showToast('📊 SWOT exported!');
+}
+
+/* ══ PLANNER ══ */
+var _tasks = {
+  0:[{id:1,title:'Morning meditation & breathwork',time:'7:00',dur:'20min',pri:'h',done:true},{id:2,title:'Review Hierarchy Vision board',time:'8:00',dur:'15min',pri:'h',done:false},{id:3,title:'Check TaxChain wallet sync',time:'9:00',dur:'10min',pri:'m',done:false},{id:4,title:'SWOT review session',time:'10:30',dur:'45min',pri:'h',done:false},{id:5,title:'Log joy score & journal',time:'20:00',dur:'10min',pri:'l',done:false}],
+  1:[{id:6,title:'Weekly planner review',time:'8:30',dur:'30min',pri:'h',done:false},{id:7,title:'Accountant call re: crypto',time:'11:00',dur:'60min',pri:'h',done:false}],
+  2:[{id:8,title:'Deep work block — product build',time:'9:00',dur:'3hr',pri:'h',done:false},{id:9,title:'Health check-in & meal prep',time:'17:00',dur:'45min',pri:'m',done:false}],
+  3:[{id:10,title:'Content creation — write article',time:'10:00',dur:'2hr',pri:'m',done:false}],
+  4:[{id:11,title:'Tax export & HMRC review',time:'14:00',dur:'90min',pri:'h',done:false}],
+  5:[{id:12,title:'Vision board review & Q3 plan',time:'10:00',dur:'60min',pri:'h',done:false}],
+  6:[{id:13,title:'Rest, journal & weekly reflection',time:'11:00',dur:'30min',pri:'l',done:false}]
+};
+var _selDay = new Date().getDay();
+var _taskId = 20;
+
+function buildWeek(){
+  var d=new Date(); var today=d.getDay();
+  var strip=document.getElementById('week-strip');
+  strip.innerHTML='';
+  for(var i=0;i<7;i++){
+    var day=new Date(d); day.setDate(d.getDate()-today+i);
+    var btn=document.createElement('div'); btn.className='wd'+(i===today?' today':'')+(i===_selDay?' active':'');
+    btn.dataset.day=i;
+    btn.innerHTML='<span class="wd-day">'+days[i].slice(0,3)+'</span><span class="wd-date">'+day.getDate()+'</span><span class="wd-dot"></span>';
+    btn.onclick=(function(ii){return function(){selectDay(ii);};})(i);
+    strip.appendChild(btn);
+  }
+}
+function selectDay(i){
+  _selDay=i;
+  document.querySelectorAll('.wd').forEach(function(el){el.classList.remove('active');});
+  document.querySelector('.wd[data-day="'+i+'"]').classList.add('active');
+  renderTasks();
+}
+function renderTasks(){
+  var list=document.getElementById('task-list'); list.innerHTML='';
+  var tasks=_tasks[_selDay]||[];
+  if(!tasks.length){list.innerHTML='<div style="padding:20px 14px;text-align:center;font-size:13px;font-style:italic;color:var(--t3);">No tasks. Add one above! ✦</div>';return;}
+  tasks.forEach(function(t){
+    var block=document.createElement('div'); block.className='task-block';
+    var priColor={h:'pri-h',m:'pri-m',l:'pri-l'}[t.pri];
+    var priLabel={h:'High',m:'Medium',l:'Low'}[t.pri];
+    block.innerHTML='<div class="tb-time">'+t.time+'</div><div class="task-item'+(t.done?' done':'')+'" onclick="toggleTask('+t.id+')"><div class="task-chk">'+(t.done?'✓':'')+'</div><div class="task-main"><div class="task-title">'+t.title+'</div><div class="task-meta"><span class="task-dur">⏱ '+t.dur+'</span><span class="task-pri '+priColor+'">'+priLabel+'</span></div></div></div>';
+    list.appendChild(block);
+  });
+}
+function toggleTask(id){
+  var tasks=_tasks[_selDay]||[];
+  tasks.forEach(function(t){if(t.id===id)t.done=!t.done;});
+  renderTasks();
+  showToast('✓ Task updated!');
+}
+function addTask(){
+  var inp=document.getElementById('task-input'); var val=inp.value.trim();
+  if(!val) return;
+  if(!_tasks[_selDay]) _tasks[_selDay]=[];
+  _tasks[_selDay].push({id:++_taskId,title:val,time:'—',dur:'—',pri:'m',done:false});
+  inp.value=''; renderTasks();
+  showToast('📅 Task added!');
+}
+buildWeek(); renderTasks();
+
+/* ══ JOY ══ */
+function updateJoy(val){
+  document.getElementById('joy-display').textContent=val;
+  var hue=val<4?0:val<7?40:120;
+  document.getElementById('joy-display').style.color=(val<4?'var(--ro)':val<7?'var(--au2)':'var(--em)');
+  document.getElementById('hiw-xp').textContent=(6000+val*120).toLocaleString();
+}
+function selectMood(btn,emoji){
+  document.querySelectorAll('.joy-mood-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+}
+function toggleJoyTag(el,c){
+  el.classList.toggle('active');
+  if(el.classList.contains('active')){
+    var colors={em:'var(--em)',sa:'var(--sa)',ro:'var(--ro)',au:'var(--au)',vi:'var(--vi)'};
+    el.style.background=colors[c]; el.style.color='#fff';
+  } else {
+    var bgs={em:'rgba(21,168,84,0.1)',sa:'rgba(26,111,196,0.09)',ro:'rgba(232,84,122,0.09)',au:'rgba(196,152,32,0.09)',vi:'rgba(124,58,237,0.09)'};
+    var fgs={em:'var(--em)',sa:'var(--sa)',ro:'var(--ro)',au:'var(--au)',vi:'var(--vi)'};
+    el.style.background=bgs[c]; el.style.color=fgs[c];
+  }
+}
+function toggleHabit(el){
+  el.classList.toggle('done');
+  showToast(el.classList.contains('done')?'✅ Habit done! +50 XP':'○ Habit unchecked');
+  var done=document.querySelectorAll('.habit-chip.done').length;
+  document.getElementById('hiw-xp').textContent=(6000+done*120).toLocaleString();
+}
+
+/* Joy Journal */
+var _jeEntries=[];
+function jeCount(){
+  var ta=document.getElementById('je-ta');
+  document.getElementById('je-count').textContent=(ta?ta.value.length:0)+' / 500';
+}
+function jeSave(){
+  var ta=document.getElementById('je-ta'); if(!ta||!ta.value.trim()) return;
+  var d=new Date();
+  _jeEntries.unshift({id:Date.now(),date:days[d.getDay()]+' '+d.getDate()+' '+months[d.getMonth()],time:d.getHours()+':'+(d.getMinutes()<10?'0':'')+d.getMinutes(),text:ta.value.trim()});
+  ta.value=''; jeCount(); renderJeEntries();
+  showToast('Entry saved! 🌿');
+}
+function renderJeEntries(){
+  var container=document.getElementById('je-entries');
+  if(!_jeEntries.length){container.innerHTML='<div style="padding:12px 14px;font-size:12px;font-style:italic;color:var(--t3);">Your saved entries will appear here…</div>';return;}
+  container.innerHTML=_jeEntries.map(function(e){
+    return '<div class="je-entry"><span class="je-entry-date">'+e.date+' · '+e.time+'</span><div class="je-entry-text">'+e.text.slice(0,160)+(e.text.length>160?'…':'')+'</div></div>';
+  }).join('');
+}
+
+/* ══ TOAST ══ */
+var _toastT=null;
+function showToast(msg){
+  var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(_toastT); _toastT=setTimeout(function(){t.classList.remove('show');},2200);
+}
+</script>
+</body>
+</html>
